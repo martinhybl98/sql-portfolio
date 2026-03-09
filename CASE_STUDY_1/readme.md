@@ -1,6 +1,6 @@
 # Fraud Transactions Analysis – SQL Case Study
 
-This project analyzes simulated payment transaction data to detect potential fraud patterns.
+This project analyzes simulated payment transaction data to identify potential fraud patterns and behavioral risk signals.
 
 Key analyses:
 - chargeback ratio per user
