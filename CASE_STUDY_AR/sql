@@ -1,0 +1,259 @@
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE CUSTOMERS (
+    customer_id   INTEGER PRIMARY KEY,
+    customer_name TEXT,
+    segment       TEXT,
+    country       TEXT,
+    created_at    DATE
+);
+
+CREATE TABLE INVOICES (
+    invoice_id    INTEGER PRIMARY KEY,
+    customer_id   INTEGER NOT NULL,
+    invoice_date  DATE NOT NULL,
+    due_date      DATE NOT NULL,
+    amount        NUMERIC NOT NULL,
+    status        TEXT NOT NULL,
+    created_by    TEXT,
+    created_ts    TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES CUSTOMERS(customer_id)
+);
+
+CREATE TABLE PAYMENTS (
+    payment_id    INTEGER PRIMARY KEY,
+    customer_id   INTEGER NOT NULL,
+    payment_date  DATE NOT NULL,
+    amount        NUMERIC NOT NULL,
+    reference     TEXT,
+    method        TEXT,
+    received_by   TEXT,
+    FOREIGN KEY (customer_id) REFERENCES CUSTOMERS(customer_id)
+);
+
+CREATE TABLE CASH_APPLICATIONS (
+    application_id INTEGER PRIMARY KEY,
+    payment_id     INTEGER NOT NULL,
+    invoice_id     INTEGER NOT NULL,
+    applied_amount NUMERIC NOT NULL,
+    applied_date   DATE NOT NULL,
+    applied_by     TEXT,
+    FOREIGN KEY (payment_id) REFERENCES PAYMENTS(payment_id),
+    FOREIGN KEY (invoice_id) REFERENCES INVOICES(invoice_id)
+);
+
+CREATE TABLE CREDIT_NOTES (
+    credit_note_id INTEGER PRIMARY KEY,
+    invoice_id     INTEGER NOT NULL,
+    credit_date    DATE NOT NULL,
+    amount         NUMERIC NOT NULL,
+    reason         TEXT,
+    created_by     TEXT,
+    FOREIGN KEY (invoice_id) REFERENCES INVOICES(invoice_id)
+);
+
+CREATE TABLE WRITE_OFFS (
+    write_off_id   INTEGER PRIMARY KEY,
+    invoice_id     INTEGER NOT NULL,
+    write_off_date DATE NOT NULL,
+    amount         NUMERIC NOT NULL,
+    reason         TEXT,
+    approved_by    TEXT,
+    FOREIGN KEY (invoice_id) REFERENCES INVOICES(invoice_id)
+
+INSERT INTO CUSTOMERS VALUES
+(1,'Alfa Retail s.r.o.','Retail','CZ','2024-01-10'),
+(2,'Beta Distribution a.s.','Distributor','CZ','2023-05-02'),
+(3,'Gamma Services GmbH','Services','DE','2024-09-12'),
+(4,'Delta Partners s.r.o.','SMB','CZ','2025-11-20'),
+(5,'Epsilon Trading Ltd.','SMB','UK','2025-12-05');
+
+INSERT INTO INVOICES VALUES
+(1001,1,'2025-10-05','2025-11-04',12000.00,'PAID','eva','2025-10-05 09:10:00'),
+(1002,1,'2025-10-28','2025-11-27',9500.00,'PAID','eva','2025-10-28 16:40:00'),
+(1003,2,'2025-11-03','2025-12-03',78000.00,'PARTIAL','tom','2025-11-03 10:05:00'),
+(1004,2,'2025-11-30','2025-12-30',150000.00,'OPEN','tom','2025-11-30 23:15:00'),
+(1005,3,'2025-11-15','2025-12-15',34000.00,'PAID','eva','2025-11-15 11:00:00'),
+(1006,3,'2025-12-31','2026-01-30',62000.00,'OPEN','tom','2025-12-31 23:50:00'),
+(1007,4,'2025-12-20','2026-01-19',19999.99,'OPEN','tom','2025-12-20 14:20:00'),
+(1008,4,'2025-12-29','2026-01-28',20000.00,'OPEN','tom','2025-12-29 18:05:00'),
+(1009,5,'2025-12-10','2026-01-09',50000.00,'OPEN','tom','2025-12-10 09:30:00'),
+(1010,5,'2025-12-27','2026-01-26',49999.00,'CREDITED','tom','2025-12-27 19:55:00');
+
+INSERT INTO PAYMENTS VALUES
+(2001,1,'2025-10-20',12000.00,'1001','BANK','anna'),
+(2002,1,'2025-11-15',9500.00,'INV-1002','BANK','anna'),
+(2003,2,'2025-12-10',30000.00,NULL,'BANK','anna'),
+(2004,3,'2025-12-05',34000.00,'1005','BANK','anna'),
+(2005,4,'2025-12-29',5000.00,'','CASH','mark'),
+(2006,5,'2025-12-28',10000.00,'MIXED','BANK','anna');
+
+INSERT INTO CASH_APPLICATIONS VALUES
+(3001,2001,1001,12000.00,'2025-10-20','anna'),
+(3002,2002,1002,9500.00,'2025-11-15','anna'),
+(3003,2004,1005,34000.00,'2025-12-05','anna'),
+(3004,2003,1003,30000.00,'2025-12-11','tom');
+
+INSERT INTO CREDIT_NOTES VALUES
+(4001,1010,'2026-01-15',49999.00,'Return / cancellation','tom');
+
+INSERT INTO WRITE_OFFS VALUES
+(5001,1003,'2026-02-20',15000.00,'Bad debt partial','manager1');
+
+
+
+invoice overall view
+  
+SELECT
+    invoice_id,
+    invoice_date,
+    due_date,
+    amount,
+    status
+FROM INVOICES
+ORDER BY invoice_date;
+
+Párování faktur a plateb
+SELECT
+    i.invoice_id,
+    i.invoice_date,
+    p.payment_id,
+    p.payment_date,
+    ca.applied_amount
+FROM INVOICES i
+JOIN CASH_APPLICATIONS ca
+    ON ca.invoice_id = i.invoice_id
+JOIN PAYMENTS p
+    ON p.payment_id = ca.payment_id
+ORDER BY i.invoice_date;
+
+
+non-allocated payments
+  
+SELECT
+    p.payment_id,
+    p.customer_id,
+    p.payment_date,
+    p.amount,
+    p.reference,
+    p.method
+FROM PAYMENTS p
+LEFT JOIN CASH_APPLICATIONS ca
+    ON ca.payment_id = p.payment_id
+WHERE ca.payment_id IS NULL
+ORDER BY p.amount DESC;
+
+
+Podezřelé platby před vystavením faktury
+SELECT
+    i.invoice_id,
+    i.invoice_date,
+    p.payment_id,
+    p.payment_date,
+    ca.applied_amount
+FROM INVOICES i
+JOIN CASH_APPLICATIONS ca
+    ON ca.invoice_id = i.invoice_id
+JOIN PAYMENTS p
+    ON p.payment_id = ca.payment_id
+WHERE p.payment_date < i.invoice_date
+ORDER BY p.payment_date;
+
+
+Dny do zaplacení
+SELECT
+    i.invoice_id,
+    i.invoice_date,
+    p.payment_date,
+    CAST(julianday(p.payment_date) - julianday(i.invoice_date) AS INTEGER) AS days_to_pay
+FROM INVOICES i
+JOIN CASH_APPLICATIONS ca
+    ON ca.invoice_id = i.invoice_id
+JOIN PAYMENTS p
+    ON p.payment_id = ca.payment_id
+ORDER BY days_to_pay DESC;
+
+
+Průměrná doba zaplacení
+SELECT
+    ROUND(AVG(julianday(p.payment_date) - julianday(i.invoice_date)), 2) AS avg_days_to_pay
+FROM INVOICES i
+JOIN CASH_APPLICATIONS ca
+    ON ca.invoice_id = i.invoice_id
+JOIN PAYMENTS p
+    ON p.payment_id = ca.payment_id;
+
+
+On-time vs late payments
+SELECT
+    i.invoice_id,
+    i.due_date,
+    p.payment_date,
+    CASE
+        WHEN p.payment_date > i.due_date THEN 'LATE'
+        ELSE 'ON_TIME'
+    END AS payment_status
+FROM INVOICES i
+JOIN CASH_APPLICATIONS ca
+    ON ca.invoice_id = i.invoice_id
+JOIN PAYMENTS p
+    ON p.payment_id = ca.payment_id
+ORDER BY i.invoice_id;
+
+Souhrn late vs on-time
+SELECT
+    CASE
+        WHEN p.payment_date > i.due_date THEN 'LATE'
+        ELSE 'ON_TIME'
+    END AS payment_status,
+    COUNT(*) AS payment_count
+FROM INVOICES i
+JOIN CASH_APPLICATIONS ca
+    ON ca.invoice_id = i.invoice_id
+JOIN PAYMENTS p
+    ON p.payment_id = ca.payment_id
+GROUP BY payment_status;
+
+
+Late vs on-time podle zákazníka
+SELECT
+    c.customer_name,
+    CASE
+        WHEN p.payment_date > i.due_date THEN 'LATE'
+        ELSE 'ON_TIME'
+    END AS payment_status,
+    COUNT(*) AS payment_count
+FROM INVOICES i
+JOIN CUSTOMERS c
+    ON c.customer_id = i.customer_id
+JOIN CASH_APPLICATIONS ca
+    ON ca.invoice_id = i.invoice_id
+JOIN PAYMENTS p
+    ON p.payment_id = ca.payment_id
+GROUP BY c.customer_name, payment_status
+ORDER BY c.customer_name, payment_count DESC;
+
+
+Top 5 nejpomaleji zaplacených faktur
+SELECT
+    i.invoice_id,
+    c.customer_name,
+    i.invoice_date,
+    p.payment_date,
+    CAST(julianday(p.payment_date) - julianday(i.invoice_date) AS INTEGER) AS days_to_pay
+FROM INVOICES i
+JOIN CUSTOMERS c
+    ON c.customer_id = i.customer_id
+JOIN CASH_APPLICATIONS ca
+    ON ca.invoice_id = i.invoice_id
+JOIN PAYMENTS p
+    ON p.payment_id = ca.payment_id
+ORDER BY days_to_pay DESC
+LIMIT 5;
+
+
+
+
+
+
+);
