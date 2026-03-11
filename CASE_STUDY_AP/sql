@@ -1,7 +1,5 @@
-Open balance per bill
-
-Kolik ještě zbývá doplatit na každé faktuře.
-
+-- Open balance per bill
+-- Shows original bill amount, total applied payments, and remaining balance.
 SELECT
     b.vendor_id,
     b.bill_id,
@@ -19,9 +17,8 @@ ORDER BY b.bill_id;
 
 
 
-2. Unapplied payments
-
-Platby, které ještě nejsou plně přiřazené k bills.
+-- Unapplied payments
+-- Shows payments and how much of each payment is still not assigned to a bill.
 
 SELECT
     p.payment_id,
@@ -36,9 +33,8 @@ GROUP BY
     p.amount
 ORDER BY p.payment_id;
 
-Unpaid bills only
-
-Jen bills, které pořád nejsou plně uhrazené.
+-- Unpaid bills
+-- Filters only bills where the remaining balance is greater than zero.
 
 SELECT
     b.bill_id,
@@ -56,9 +52,9 @@ ORDER BY b.bill_id;
 
 
 
-Remaining debt per vendor
 
-Kolik celkem dlužíš každému vendorovi.
+-- Remaining debt per vendor
+-- Aggregates outstanding balances from all bills belonging to each vendor.
 
 SELECT
     b.vendor_id,
@@ -79,10 +75,8 @@ GROUP BY
 ORDER BY b.vendor_id;
 
 
-
-Remaining debt per vendor as of date
-
-Stav závazků k určitému datu.
+-- Remaining vendor debt as of a specific date
+-- Useful for financial reporting and month-end snapshots.
 
 SELECT
     v.vendor_id,
@@ -107,9 +101,10 @@ GROUP BY
     v.vendor_id
 ORDER BY v.vendor_id;
 
-AP aging analysis
 
-Rozdělení závazků podle stáří.
+
+-- AP aging analysis
+-- Categorizes outstanding balances based on how overdue they are.
 
 SELECT
     v.vendor_id,
