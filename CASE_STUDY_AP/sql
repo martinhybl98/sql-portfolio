@@ -1,5 +1,21 @@
+Accounts Payable SQL Queries
+
+Example SQL queries for common Accounts Payable reporting scenarios:
+
+open balance per bill
+
+unapplied payments, unpaid bills, vendor debt, vendor debt as of a specific date
+
+AP aging analysis
+
+Tables used:
+
+BILLS, PAYMENTS_AP, PAYMENT_APPLICATIONS, VENDORS
+    
+-- =====================================================
 -- Open balance per bill
 -- Shows original bill amount, total applied payments, and remaining balance.
+-- =====================================================
 SELECT
     b.vendor_id,
     b.bill_id,
@@ -16,9 +32,10 @@ GROUP BY
 ORDER BY b.bill_id;
 
 
-
+-- =====================================================
 -- Unapplied payments
 -- Shows payments and how much of each payment is still not assigned to a bill.
+-- =====================================================
 
 SELECT
     p.payment_id,
@@ -33,8 +50,10 @@ GROUP BY
     p.amount
 ORDER BY p.payment_id;
 
+-- =====================================================
 -- Unpaid bills
 -- Filters only bills where the remaining balance is greater than zero.
+-- =====================================================
 
 SELECT
     b.bill_id,
@@ -52,9 +71,10 @@ ORDER BY b.bill_id;
 
 
 
-
+-- =====================================================
 -- Remaining debt per vendor
 -- Aggregates outstanding balances from all bills belonging to each vendor.
+-- =====================================================
 
 SELECT
     b.vendor_id,
@@ -75,8 +95,10 @@ GROUP BY
 ORDER BY b.vendor_id;
 
 
+-- =====================================================
 -- Remaining vendor debt as of a specific date
 -- Useful for financial reporting and month-end snapshots.
+-- =====================================================
 
 SELECT
     v.vendor_id,
@@ -102,9 +124,10 @@ GROUP BY
 ORDER BY v.vendor_id;
 
 
-
+-- =====================================================
 -- AP aging analysis
 -- Categorizes outstanding balances based on how overdue they are.
+-- =====================================================
 
 SELECT
     v.vendor_id,
