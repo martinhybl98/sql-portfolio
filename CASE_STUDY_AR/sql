@@ -1,3 +1,24 @@
+-- =====================================================
+-- CASE STUDYAP / AR / PAYMENT RECONCILIATION
+-- Dataset: customers, invoices, payments, cash applications,
+--          credit notes, write-offs
+--
+-- Focus:
+-- - invoice-payment matching
+-- - payment timing analysis
+-- - late payment behaviour
+-- - unmatched / non-allocated payments
+-- - basic anomaly checks in receivables data
+-- =====================================================
+
+
+-- =====================================================
+-- 0) TABLE SETUP
+-- What: create base accounting tables
+-- Why: simulate AP/AR workflow with invoices, payments,
+--      allocations, credit notes and write-offs
+-- =====================================================
+
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE CUSTOMERS (
@@ -60,6 +81,15 @@ CREATE TABLE WRITE_OFFS (
     reason         TEXT,
     approved_by    TEXT,
     FOREIGN KEY (invoice_id) REFERENCES INVOICES(invoice_id)
+);
+
+
+-- =====================================================
+-- 1) SAMPLE DATA LOAD
+-- What: insert demo customers, invoices, payments,
+--       allocations, credit notes and write-offs
+-- Why: create realistic accounting scenarios for analysis
+-- =====================================================
 
 INSERT INTO CUSTOMERS VALUES
 (1,'Alfa Retail s.r.o.','Retail','CZ','2024-01-10'),
@@ -101,9 +131,12 @@ INSERT INTO WRITE_OFFS VALUES
 (5001,1003,'2026-02-20',15000.00,'Bad debt partial','manager1');
 
 
+-- =====================================================
+-- 2) INVOICE OVERALL VIEW
+-- What: basic overview of invoices
+-- Why: understand invoice population before deeper analysis
+-- =====================================================
 
-invoice overall view
-  
 SELECT
     invoice_id,
     invoice_date,
@@ -113,7 +146,13 @@ SELECT
 FROM INVOICES
 ORDER BY invoice_date;
 
-Párování faktur a plateb
+
+-- =====================================================
+-- 3) INVOICE TO PAYMENT MATCHING
+-- What: show how invoices were matched to payments
+-- Why: core reconciliation view between invoice and cash data
+-- =====================================================
+
 SELECT
     i.invoice_id,
     i.invoice_date,
@@ -128,8 +167,12 @@ JOIN PAYMENTS p
 ORDER BY i.invoice_date;
 
 
-non-allocated payments
-  
+-- =====================================================
+-- 4) NON-ALLOCATED PAYMENTS
+-- What: payments not linked to any invoice
+-- Why: identify unapplied cash requiring investigation
+-- =====================================================
+
 SELECT
     p.payment_id,
     p.customer_id,
@@ -144,7 +187,12 @@ WHERE ca.payment_id IS NULL
 ORDER BY p.amount DESC;
 
 
-Podezřelé platby před vystavením faktury
+-- =====================================================
+-- 5) PAYMENTS BEFORE INVOICE DATE
+-- What: payments dated earlier than the related invoice
+-- Why: detect unusual timing or possible data-entry issues
+-- =====================================================
+
 SELECT
     i.invoice_id,
     i.invoice_date,
@@ -160,7 +208,13 @@ WHERE p.payment_date < i.invoice_date
 ORDER BY p.payment_date;
 
 
-Dny do zaplacení
+-- =====================================================
+-- 6) DAYS TO PAY PER INVOICE
+-- What: calculate number of days between invoice issue
+--       and payment date
+-- Why: measure customer payment speed
+-- =====================================================
+
 SELECT
     i.invoice_id,
     i.invoice_date,
@@ -174,7 +228,12 @@ JOIN PAYMENTS p
 ORDER BY days_to_pay DESC;
 
 
-Průměrná doba zaplacení
+-- =====================================================
+-- 7) AVERAGE DAYS TO PAY
+-- What: average payment delay across matched invoices
+-- Why: create high-level KPI for receivables performance
+-- =====================================================
+
 SELECT
     ROUND(AVG(julianday(p.payment_date) - julianday(i.invoice_date)), 2) AS avg_days_to_pay
 FROM INVOICES i
@@ -184,7 +243,12 @@ JOIN PAYMENTS p
     ON p.payment_id = ca.payment_id;
 
 
-On-time vs late payments
+-- =====================================================
+-- 8) ON-TIME VS LATE PAYMENTS
+-- What: classify each matched payment as on-time or late
+-- Why: assess payment discipline on invoice level
+-- =====================================================
+
 SELECT
     i.invoice_id,
     i.due_date,
@@ -200,7 +264,13 @@ JOIN PAYMENTS p
     ON p.payment_id = ca.payment_id
 ORDER BY i.invoice_id;
 
-Souhrn late vs on-time
+
+-- =====================================================
+-- 9) PAYMENT TIMELINESS SUMMARY
+-- What: aggregate count of on-time vs late payments
+-- Why: quick portfolio-level overview of payment behaviour
+-- =====================================================
+
 SELECT
     CASE
         WHEN p.payment_date > i.due_date THEN 'LATE'
@@ -215,7 +285,12 @@ JOIN PAYMENTS p
 GROUP BY payment_status;
 
 
-Late vs on-time podle zákazníka
+-- =====================================================
+-- 10) ON-TIME VS LATE BY CUSTOMER
+-- What: compare payment discipline across customers
+-- Why: identify customers with weaker payment behaviour
+-- =====================================================
+
 SELECT
     c.customer_name,
     CASE
@@ -234,7 +309,12 @@ GROUP BY c.customer_name, payment_status
 ORDER BY c.customer_name, payment_count DESC;
 
 
-Top 5 nejpomaleji zaplacených faktur
+-- =====================================================
+-- 11) TOP 5 SLOWEST PAID INVOICES
+-- What: invoices with the longest time to payment
+-- Why: highlight delayed settlements for review
+-- =====================================================
+
 SELECT
     i.invoice_id,
     c.customer_name,
@@ -250,10 +330,3 @@ JOIN PAYMENTS p
     ON p.payment_id = ca.payment_id
 ORDER BY days_to_pay DESC
 LIMIT 5;
-
-
-
-
-
-
-);
